@@ -231,7 +231,7 @@
           <p>Cada camión sale cuando junta su capacidad en pallets, o cuando el pallet cerrado más viejo cumplió la espera máxima. Va, descarga en San Lorenzo y vuelve.</p>
           <div class="tblwrap">
             <table class="rows" id="tblTrucks">
-              <thead><tr><th>Nombre</th><th>Pallets</th><th>Viaje (h)</th><th>Carga (min)</th><th>Descarga (min)</th><th>Espera máx (h)</th><th></th></tr></thead>
+              <thead><tr><th>Nombre</th><th>Pallets</th><th>Viaje (min)</th><th>Carga (min)</th><th>Descarga (min)</th><th>Espera máx (h)</th><th></th></tr></thead>
               <tbody></tbody>
             </table>
           </div>
@@ -348,12 +348,12 @@ function poisson(rng,lam){ if(lam<=0)return 0; if(lam>60){return Math.max(0,Math
 function pick(rng,weights){ const tot=weights.reduce((a,b)=>a+b,0)||1; let r=rng()*tot; for(let i=0;i<weights.length;i++){ r-=weights[i]; if(r<0)return i } return weights.length-1 }
 
 /* ---------------- tablas editables ---------------- */
-const DEF_TRUCKS=[{nm:"Camión 1",cap:12,trip:5,load:45,unload:45,wait:8},{nm:"Camión 2",cap:12,trip:5,load:45,unload:45,wait:8}];
+const DEF_TRUCKS=[{nm:"Camión 1",cap:12,trip:300,load:45,unload:45,wait:8},{nm:"Camión 2",cap:12,trip:300,load:45,unload:45,wait:8}];
 const DEF_DESTS=[{nm:"San Lorenzo",w:30,km:3},{nm:"Puerto Gral. San Martín",w:20,km:8},{nm:"Fray Luis Beltrán",w:15,km:6},{nm:"Capitán Bermúdez",w:15,km:10},{nm:"Ricardone",w:10,km:12},{nm:"Timbúes",w:10,km:18}];
 const DEF_VEH=[{nm:"Moto",n:4,S:1,M:0,L:0,cap:25,dep:"8,11,14,16",v:35,stop:4},{nm:"Utilitario",n:4,S:1,M:1,L:0,cap:90,dep:"8,12,16",v:40,stop:5},{nm:"Camión chico",n:1,S:1,M:1,L:1,cap:200,dep:"8,13",v:35,stop:7}];
 
 function numCell(k,v,min,step){return `<td><input type="number" data-k="${k}" value="${v}" min="${min}" step="${step}"></td>`}
-function rowTruck(t){return `<tr><td><input type="text" class="nm" data-k="nm" value="${esc(t.nm)}"></td>${numCell("cap",t.cap,1,1)}${numCell("trip",t.trip,0.25,0.25)}${numCell("load",t.load,0,5)}${numCell("unload",t.unload,0,5)}${numCell("wait",t.wait,0,0.5)}<td class="x"><button type="button" class="del" title="quitar">×</button></td></tr>`}
+function rowTruck(t){return `<tr><td><input type="text" class="nm" data-k="nm" value="${esc(t.nm)}"></td>${numCell("cap",t.cap,1,1)}${numCell("trip",t.trip,1,5)}${numCell("load",t.load,0,5)}${numCell("unload",t.unload,0,5)}${numCell("wait",t.wait,0,0.5)}<td class="x"><button type="button" class="del" title="quitar">×</button></td></tr>`}
 function rowDest(d){return `<tr><td><input type="text" class="nm" data-k="nm" value="${esc(d.nm)}"></td>${numCell("w",d.w,0,5)}${numCell("km",d.km,0,1)}<td class="x"><button type="button" class="del" title="quitar">×</button></td></tr>`}
 function rowVeh(v){return `<tr><td><input type="text" class="nm" data-k="nm" value="${esc(v.nm)}"></td>${numCell("n",v.n,0,1)}
   <td><div class="chk"><label><input type="checkbox" data-k="S" ${v.S?"checked":""}>S</label><label><input type="checkbox" data-k="M" ${v.M?"checked":""}>M</label><label><input type="checkbox" data-k="L" ${v.L?"checked":""}>L</label></div></td>
@@ -366,7 +366,7 @@ function readTable(id){
     return o });
 }
 fillTable("tblTrucks",DEF_TRUCKS,rowTruck); fillTable("tblDests",DEF_DESTS,rowDest); fillTable("tblVeh",DEF_VEH,rowVeh);
-$("addTruck").onclick=()=>{ const n=$("tblTrucks").querySelectorAll("tbody tr").length+1; $("tblTrucks").querySelector("tbody").insertAdjacentHTML("beforeend",rowTruck({nm:"Camión "+n,cap:12,trip:5,load:45,unload:45,wait:8})); onEdit(true) };
+$("addTruck").onclick=()=>{ const n=$("tblTrucks").querySelectorAll("tbody tr").length+1; $("tblTrucks").querySelector("tbody").insertAdjacentHTML("beforeend",rowTruck({nm:"Camión "+n,cap:12,trip:300,load:45,unload:45,wait:8})); onEdit(true) };
 $("addDest").onclick=()=>{ $("tblDests").querySelector("tbody").insertAdjacentHTML("beforeend",rowDest({nm:"Nueva localidad",w:10,km:10})); onEdit(true) };
 $("addVeh").onclick=()=>{ $("tblVeh").querySelector("tbody").insertAdjacentHTML("beforeend",rowVeh({nm:"Vehículo",n:1,S:1,M:1,L:0,cap:60,dep:"9,14",v:40,stop:5})); onEdit(true) };
 document.addEventListener("click",e=>{ if(e.target.classList.contains("del")){ const tb=e.target.closest("tbody"); if(tb.children.length>1){ e.target.closest("tr").remove(); onEdit(true) } } });
@@ -449,7 +449,7 @@ function step(){
         logIt("ba",`${cfg.nm} carga ${tr.pallets.length} pallets (${full?"completó capacidad":"venció la espera"})`);
       }
     } else if(tr.status==="loading" && t>=tr.tEvent){
-      const dur=cfg.trip*60*Math.exp(P.sigTrip*normal(rng)-P.sigTrip*P.sigTrip/2);
+      const dur=cfg.trip*Math.exp(P.sigTrip*normal(rng)-P.sigTrip*P.sigTrip/2);
       tr.status="toSL"; tr.t0=t; tr.tEvent=t+dur; tr.eta=tr.tEvent; tr.trips++;
       for(const pl of tr.pallets) for(const p of pl.items) p.tDep=t;
       logIt("ba",`${cfg.nm} salió hacia San Lorenzo con ${tr.pallets.length} pallets, llega ~${fmtAt(tr.eta,t)}`);
@@ -460,7 +460,7 @@ function step(){
     } else if(tr.status==="unloading" && t>=tr.tEvent){
       for(const pl of tr.pallets){ pl.tArr=t; for(const p of pl.items) p.tArr=t; sl.pallets.push(pl) }
       const n=tr.pallets.length; tr.pallets=[];
-      tr.status="toBA"; tr.t0=t; tr.tEvent=t+cfg.trip*60;
+      tr.status="toBA"; tr.t0=t; tr.tEvent=t+cfg.trip;
       logIt("sl",`${cfg.nm} descargó ${n} pallets y vuelve a Buenos Aires`);
     } else if(tr.status==="toBA" && t>=tr.tEvent){
       tr.status="BA"; tr.t0=t; logIt("ba",`${cfg.nm} volvió y está en playa`);
