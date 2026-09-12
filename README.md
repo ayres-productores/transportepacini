@@ -23,13 +23,13 @@ Las tipografías se cargan de Google Fonts y degradan a fuentes del sistema si n
 
 **Buenos Aires (receptoría y consolidación)**
 
-1. Llegadas Poisson por hora dentro del horario de recepción; cada paquete nace con tamaño (S/M/L) y destino según pesos.
+1. Llegadas Poisson por hora dentro del horario de recepción; cada paquete nace sólo con tamaño (S/M/L). En Buenos Aires no se lee la dirección.
 2. Un pallet abierto por vez, se llena al ritmo de armado; se cierra por capacidad o por edad máxima.
 3. Camiones de línea (lista editable): cada uno sale cuando junta su capacidad en pallets o cuando el pallet cerrado más viejo venció la espera máxima. Viaje con ruido lognormal; descarga en San Lorenzo y vuelve.
 
 **San Lorenzo (centro de distribución y despacho)**
 
-4. Desarme de pallets, logueo (lectura de dirección) y clasificación (tamaño + vehículo viable): tres colas FIFO en serie con su tasa, activas sólo dentro del turno.
+4. Desarme de pallets, logueo (se lee la dirección y el paquete recibe su localidad según los pesos de la tabla de destinos) y clasificación (tamaño + vehículo viable): tres colas FIFO en serie con su tasa, activas sólo dentro del turno.
 5. Paquetes listos por localidad. Los que no admite ningún vehículo quedan apartados.
 6. Flota de reparto (lista editable de tipos: unidades, tamaños admitidos, capacidad, horarios de salida, velocidad, minutos por parada). En cada salida cada unidad libre carga un solo destino y entrega parada a parada.
 

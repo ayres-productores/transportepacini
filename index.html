@@ -241,17 +241,6 @@
           </div>
         </div>
 
-        <div class="grp">
-          <h2>Destinos</h2>
-          <p>A dónde va cada paquete. La dirección se lee recién en San Lorenzo; acá sólo define el mix.</p>
-          <div class="tblwrap">
-            <table class="rows" id="tblDests">
-              <thead><tr><th>Localidad</th><th>Peso (%)</th><th>Km desde CD</th><th></th></tr></thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <button class="add" type="button" id="addDest">+ agregar destino</button>
-        </div>
       </form>
 
       <div class="floor" id="floorBA"></div>
@@ -279,7 +268,7 @@
         </div>
         <div class="grp">
           <h2>Logueo</h2>
-          <p>Se lee la dirección del destinatario y el paquete queda registrado con su localidad.</p>
+          <p>Acá se lee por primera vez la dirección del destinatario: el paquete recibe su localidad.</p>
           <div class="fields">
             <div class="f wide"><label>Paquetes por hora</label><input type="number" id="rateLog" value="200" min="1" step="10"></div>
           </div>
@@ -290,6 +279,17 @@
           <div class="fields">
             <div class="f wide"><label>Paquetes por hora</label><input type="number" id="rateCls" value="250" min="1" step="10"></div>
           </div>
+        </div>
+        <div class="grp">
+          <h2>Destinos</h2>
+          <p>Localidades que se leen en la dirección al loguear. El peso define qué tan seguido aparece cada una.</p>
+          <div class="tblwrap">
+            <table class="rows" id="tblDests">
+              <thead><tr><th>Localidad</th><th>Peso (%)</th><th>Km desde CD</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button class="add" type="button" id="addDest">+ agregar destino</button>
         </div>
         <div class="grp">
           <h2>Flota de reparto</h2>
@@ -314,9 +314,9 @@
       <h3>Reloj</h3>
       <p>Avanza de a <code>5 minutos</code>. Cada tasa "por hora" se convierte en crédito por paso; cuando el crédito llega a 1 se procesa una unidad. Así una tasa de 150 paq/h procesa 12,5 paquetes por paso sin redondear de más.</p>
       <h3>Buenos Aires</h3>
-      <p>Las llegadas son Poisson con la tasa indicada, modulada hora a hora por la variación. Cada paquete nace con tamaño y destino según los pesos. Hay un solo pallet abierto: se llena al ritmo de armado y se cierra por capacidad o por edad. Un camión en playa parte apenas hay pallets cerrados suficientes para llenarlo, o cuando el pallet cerrado más viejo superó la espera máxima. El viaje dura lo indicado por un factor lognormal con la variabilidad; la vuelta usa el tiempo nominal.</p>
+      <p>Las llegadas son Poisson con la tasa indicada, modulada hora a hora por la variación. Cada paquete nace sólo con tamaño: en Buenos Aires nadie mira la dirección. Hay un solo pallet abierto: se llena al ritmo de armado y se cierra por capacidad o por edad. Un camión en playa parte apenas hay pallets cerrados suficientes para llenarlo, o cuando el pallet cerrado más viejo superó la espera máxima. El viaje dura lo indicado por un factor lognormal con la variabilidad; la vuelta usa el tiempo nominal.</p>
       <h3>San Lorenzo</h3>
-      <p>Al descargar, los pallets entran en cola. Desarme, logueo y clasificación son tres colas FIFO en serie, cada una con su tasa, activas sólo dentro del turno. Al loguear se conoce la localidad; al clasificar se comprueba si algún tipo de vehículo admite ese tamaño. En cada horario de salida, cada unidad libre elige la localidad con más paquetes admisibles, carga hasta su capacidad y sale. El viaje dura <code>2·km/velocidad + paradas·min/parada</code>; el paquete <code>j</code> se entrega a los <code>km/velocidad + j·min/parada</code>.</p>
+      <p>Al descargar, los pallets entran en cola. Desarme, logueo y clasificación son tres colas FIFO en serie, cada una con su tasa, activas sólo dentro del turno. Al loguear se lee la dirección y recién ahí el paquete recibe su localidad (según los pesos de la tabla de destinos); al clasificar se comprueba si algún tipo de vehículo admite ese tamaño. En cada horario de salida, cada unidad libre elige la localidad con más paquetes admisibles, carga hasta su capacidad y sale. El viaje dura <code>2·km/velocidad + paradas·min/parada</code>; el paquete <code>j</code> se entrega a los <code>km/velocidad + j·min/parada</code>.</p>
       <h3>Lo que conviene mirar</h3>
       <p>Si los pallets cerrados en Buenos Aires se ponen naranjas, faltan camiones o sobra espera máxima. Si en San Lorenzo crece la cola de logueo, el cuello es la gente que lee direcciones, no los camiones. Si un destino acumula sin bajar, la flota no llega a ese tamaño o a ese horario.</p>
     </div>
@@ -422,8 +422,8 @@ function step(){
     const hk=Math.floor(t/60);
     if(hk!==S.hourKey){ S.hourKey=hk; S.hourFactor=Math.max(0.05,1+P.varIn*(rng()*2-1)) }
     const n=poisson(rng,P.rateIn*S.hourFactor*DT/60);
-    const wS=[P.pS,P.pM,P.pL], wD=P.dests.map(d=>d.w);
-    for(let i=0;i<n;i++){ ba.loose.push({id:S.nextId++,size:SIZES[pick(rng,wS)],dest:pick(rng,wD),tIn:t-rng()*DT}); S.created++ }
+    const wS=[P.pS,P.pM,P.pL];
+    for(let i=0;i<n;i++){ ba.loose.push({id:S.nextId++,size:SIZES[pick(rng,wS)],dest:-1,tIn:t-rng()*DT}); S.created++ }
   }
 
   /* --- Buenos Aires: armado de pallets --- */
@@ -472,8 +472,8 @@ function step(){
   if(slOpen){
     if(sl.pallets.length){ sl.unpCredit+=P.rateUnp*DT/60;
       while(sl.unpCredit>=1 && sl.pallets.length){ const pl=sl.pallets.shift(); for(const p of pl.items){p.tUnp=t; sl.logQ.push(p)} sl.unpCredit-=1; sl.unpacked++ } }
-    if(sl.logQ.length){ sl.logCredit+=P.rateLog*DT/60;
-      while(sl.logCredit>=1 && sl.logQ.length){ const p=sl.logQ.shift(); p.tLog=t; sl.clsQ.push(p); sl.logCredit-=1; sl.logged++ } }
+    if(sl.logQ.length){ sl.logCredit+=P.rateLog*DT/60; const wD=P.dests.map(d=>d.w);
+      while(sl.logCredit>=1 && sl.logQ.length){ const p=sl.logQ.shift(); p.tLog=t; p.dest=pick(rng,wD); sl.clsQ.push(p); sl.logCredit-=1; sl.logged++ } }
     if(sl.clsQ.length){ sl.clsCredit+=P.rateCls*DT/60;
       while(sl.clsCredit>=1 && sl.clsQ.length){ const p=sl.clsQ.shift(); p.tCls=t; sl.clsCredit-=1; sl.classified++;
         if(P.viable[p.size] && sl.bins[p.dest]) sl.bins[p.dest].push(p); else sl.noVeh.push(p) } }
