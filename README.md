@@ -1,7 +1,9 @@
-# Simulador de red logística — Buenos Aires → San Lorenzo
+# Qué hay en cada nave — Buenos Aires y San Lorenzo
 
-Simulación por eventos de una red de dos escalones: consolidación en origen,
-tramo de línea, clasificación en el centro de distribución y reparto de última milla.
+Simulador paso a paso (5 minutos por paso) de dos sucursales de una red logística,
+con una pestaña por nave que muestra el estado en cada momento: paquetes sueltos,
+pallets armándose, camiones en playa o en ruta, pallets por desarmar, colas de
+logueo y clasificación, paquetes listos por localidad y la flota de reparto.
 
 Un solo archivo estático (`index.html`), sin build, sin dependencias.
 Las tipografías se cargan de Google Fonts y degradan a fuentes del sistema si no hay red.
@@ -19,13 +21,16 @@ Las tipografías se cargan de Google Fonts y degradan a fuentes del sistema si n
 
 ## Modelo
 
-Seis etapas medidas por separado:
+**Buenos Aires (receptoría y consolidación)**
 
-1. Espera de consolidación — disparador por cantidad `Q` o por espera máxima `T`
-2. Espera de camión — utilización de la flota de línea
-3. Tramo de línea — `distancia / velocidad` con ruido lognormal
-4. Clasificación — cola FIFO a `operarios × paq/hora`, sólo dentro de la ventana de trabajo
-5. Espera de corte — hasta el próximo horario de salida
-6. Reparto — aproximación continua de ruteo, distancia entre paradas ≈ `0,57·√(A/n)`
+1. Llegadas Poisson por hora dentro del horario de recepción; cada paquete nace con tamaño (S/M/L) y destino según pesos.
+2. Un pallet abierto por vez, se llena al ritmo de armado; se cierra por capacidad o por edad máxima.
+3. Camiones de línea (lista editable): cada uno sale cuando junta su capacidad en pallets o cuando el pallet cerrado más viejo venció la espera máxima. Viaje con ruido lognormal; descarga en San Lorenzo y vuelve.
 
-La semilla fija el azar: con el mismo número, el mismo resultado.
+**San Lorenzo (centro de distribución y despacho)**
+
+4. Desarme de pallets, logueo (lectura de dirección) y clasificación (tamaño + vehículo viable): tres colas FIFO en serie con su tasa, activas sólo dentro del turno.
+5. Paquetes listos por localidad. Los que no admite ningún vehículo quedan apartados.
+6. Flota de reparto (lista editable de tipos: unidades, tamaños admitidos, capacidad, horarios de salida, velocidad, minutos por parada). En cada salida cada unidad libre carga un solo destino y entrega parada a parada.
+
+La semilla fija el azar: con el mismo número, el mismo resultado. Las tasas se pueden cambiar mientras corre; agregar o quitar camiones, destinos o vehículos reinicia la corrida.
