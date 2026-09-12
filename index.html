@@ -1,0 +1,611 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulador de red — Buenos Aires a San Lorenzo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --base:#E8EBEE;
+    --panel:#FFFFFF;
+    --line:#D2D8DE;
+    --line-soft:#E4E8EC;
+    --ink:#14212E;
+    --muted:#66788A;
+    --alert:#E8A020;
+    --s1:#35618F;
+    --s2:#8296AA;
+    --s3:#2A8C7C;
+    --s4:#6E5D9E;
+    --s5:#C97B2C;
+    --s6:#B04A54;
+    --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:"Inter Tight", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--base);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1440px;margin:0 auto;padding:28px 24px 72px}
+  header.top{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:24px;flex-wrap:wrap;
+    border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:22px;
+  }
+  h1{
+    font-size:23px;font-weight:600;letter-spacing:-0.015em;margin:0;
+  }
+  .sub{color:var(--muted);font-size:13.5px;max-width:62ch;margin:4px 0 0}
+  .seed-line{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+  .layout{display:grid;grid-template-columns:372px minmax(0,1fr);gap:22px;align-items:start}
+  @media (max-width:1040px){.layout{grid-template-columns:1fr}}
+
+  /* ---------- controls ---------- */
+  .controls{
+    background:var(--panel);border:1px solid var(--line);border-radius:3px;
+    padding:4px 0 8px;position:sticky;top:18px;max-height:calc(100vh - 40px);overflow:auto;
+  }
+  @media (max-width:1040px){.controls{position:static;max-height:none}}
+  .grp{border-bottom:1px solid var(--line-soft);padding:14px 16px 16px}
+  .grp:last-child{border-bottom:none}
+  .grp > h2{
+    font-size:13px;font-weight:600;margin:0 0 2px;letter-spacing:0;
+  }
+  .grp > p{font-size:12px;color:var(--muted);margin:0 0 11px;line-height:1.4}
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px}
+  .f{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .f.wide{grid-column:1/-1}
+  .f label{font-size:11.5px;color:var(--muted);line-height:1.25}
+  .f input,.f select{
+    font-family:var(--mono);font-size:13px;color:var(--ink);
+    background:#F7F9FA;border:1px solid var(--line);border-radius:2px;
+    padding:5px 7px;width:100%;
+  }
+  .f select{font-family:var(--sans)}
+  .f input:focus,.f select:focus{outline:2px solid var(--s1);outline-offset:1px;background:#fff}
+
+  /* ---------- results ---------- */
+  .results{display:flex;flex-direction:column;gap:18px;min-width:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:20px}
+  .card h2{font-size:14px;font-weight:600;margin:0 0 3px}
+  .card p.note{font-size:12.5px;color:var(--muted);margin:0 0 16px;max-width:74ch}
+
+  /* hero */
+  .hero{padding:22px 22px 20px}
+  .hero-head{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap;margin-bottom:14px}
+  .hero-head h2{margin:0}
+  .total{text-align:right}
+  .total .num{font-family:var(--mono);font-size:38px;font-weight:500;letter-spacing:-0.02em;line-height:1}
+  .total .lbl{font-size:12px;color:var(--muted);margin-top:3px}
+
+  .band{display:flex;width:100%;height:54px;border-radius:2px;overflow:hidden;background:var(--line-soft)}
+  .band div{
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:11.5px;color:#fff;white-space:nowrap;overflow:hidden;
+    transition:flex-grow .25s ease;
+  }
+  @media (prefers-reduced-motion:reduce){.band div{transition:none}}
+  .ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:5px}
+
+  table.stages{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
+  table.stages th{
+    text-align:left;font-weight:500;font-size:11.5px;color:var(--muted);
+    padding:0 8px 6px 0;border-bottom:1px solid var(--line-soft)
+  }
+  table.stages th.r,table.stages td.r{text-align:right}
+  table.stages td{padding:6px 8px 6px 0;border-bottom:1px solid var(--line-soft)}
+  table.stages td.r{font-family:var(--mono)}
+  .sw{display:inline-block;width:9px;height:9px;border-radius:1px;margin-right:8px;vertical-align:baseline}
+
+  /* kpis */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+  .kpi{background:var(--panel);padding:14px 16px}
+  .kpi .v{font-family:var(--mono);font-size:22px;font-weight:500;letter-spacing:-0.01em}
+  .kpi .k{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.3}
+  .kpi .bar{height:3px;background:var(--line-soft);border-radius:2px;margin-top:9px;overflow:hidden}
+  .kpi .bar i{display:block;height:100%;background:var(--s1)}
+  .kpi.hot .bar i{background:var(--alert)}
+
+  /* callout */
+  .callout{
+    border-left:3px solid var(--alert);background:#FCF6E8;
+    padding:14px 16px;border-radius:0 3px 3px 0;font-size:13.5px;line-height:1.55
+  }
+  .callout.bad{border-left-color:#B04A54;background:#FBEDEE}
+  .callout strong{font-weight:600}
+  .callout .mono{font-family:var(--mono)}
+
+  /* charts */
+  .chartbox{width:100%;overflow:hidden}
+  svg{display:block;width:100%;height:auto}
+  .axis{stroke:var(--line);stroke-width:1}
+  .gridl{stroke:var(--line-soft);stroke-width:1}
+  text.lab{font-family:var(--mono);font-size:10px;fill:var(--muted)}
+  text.labs{font-family:var(--sans);font-size:11px;fill:var(--muted)}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px}
+  .legend span i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:6px}
+
+  details.math{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:0}
+  details.math summary{padding:16px 20px;cursor:pointer;font-size:14px;font-weight:600;list-style:none}
+  details.math summary::-webkit-details-marker{display:none}
+  details.math summary:focus-visible{outline:2px solid var(--s1);outline-offset:-2px}
+  details.math .body{padding:0 20px 20px;font-size:13px;color:#32424F;max-width:82ch}
+  details.math .body h3{font-size:13px;margin:16px 0 4px;font-weight:600;color:var(--ink)}
+  details.math .body p{margin:0 0 6px;line-height:1.6}
+  details.math .body code{font-family:var(--mono);font-size:12.5px;background:#F1F4F6;padding:1px 4px;border-radius:2px}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>De Buenos Aires a San Lorenzo: dónde se va el tiempo</h1>
+      <p class="sub">Simulación de un paquete a través de los cuatro puntos donde espera: consolidación, tramo de línea, clasificación y reparto. Mové los parámetros y mirá qué etapa manda.</p>
+    </div>
+    <div class="seed-line" id="runinfo">—</div>
+  </header>
+
+  <div class="layout">
+    <!-- ============ CONTROLES ============ -->
+    <form class="controls" id="form" autocomplete="off">
+      <div class="grp">
+        <h2>Demanda</h2>
+        <p>Paquetes que entran al centro de Buenos Aires.</p>
+        <div class="fields">
+          <div class="f"><label>Paquetes por día</label><input type="number" id="paqDia" value="1200" min="1" step="50"></div>
+          <div class="f"><label>Variación día a día (%)</label><input type="number" id="varDem" value="20" min="0" max="80" step="5"></div>
+          <div class="f"><label>Recepción desde (h)</label><input type="number" id="recepIni" value="8" min="0" max="23" step="1"></div>
+          <div class="f"><label>Recepción hasta (h)</label><input type="number" id="recepFin" value="19" min="1" max="24" step="1"></div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h2>Consolidación en Buenos Aires</h2>
+        <p>El camión sale cuando junta la cantidad disparadora, o cuando el paquete más viejo llega al tiempo máximo de espera. Lo que pase primero.</p>
+        <div class="fields">
+          <div class="f"><label>Cantidad disparadora (paq)</label><input type="number" id="Q" value="700" min="1" step="25"></div>
+          <div class="f"><label>Espera máxima (h)</label><input type="number" id="T" value="12" min="0.5" step="0.5"></div>
+          <div class="f"><label>Capacidad del camión (paq)</label><input type="number" id="Clh" value="800" min="1" step="25"></div>
+          <div class="f"><label>Tiempo de carga (h)</label><input type="number" id="tCarga" value="1" min="0" step="0.25"></div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h2>Tramo de línea</h2>
+        <p>Buenos Aires a San Lorenzo y vuelta. El camión no está disponible hasta que regresa.</p>
+        <div class="fields">
+          <div class="f"><label>Distancia (km)</label><input type="number" id="dist" value="320" min="1" step="10"></div>
+          <div class="f"><label>Velocidad media (km/h)</label><input type="number" id="vlh" value="65" min="10" step="5"></div>
+          <div class="f"><label>Camiones de línea</label><input type="number" id="Nlh" value="2" min="1" step="1"></div>
+          <div class="f"><label>Variabilidad del viaje (%)</label><input type="number" id="sigLh" value="12" min="0" max="60" step="2"></div>
+          <div class="f"><label>Tiempo de descarga (h)</label><input type="number" id="tDesc" value="1" min="0" step="0.25"></div>
+          <div class="f"><label>Costo por viaje ($)</label><input type="number" id="costoViaje" value="420000" min="0" step="10000"></div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h2>Clasificación en San Lorenzo</h2>
+        <p>El camión descarga entero; los paquetes se separan por repartidor dentro de la ventana de trabajo.</p>
+        <div class="fields">
+          <div class="f"><label>Operarios</label><input type="number" id="ops" value="4" min="1" step="1"></div>
+          <div class="f"><label>Paquetes/hora c/u</label><input type="number" id="mu" value="90" min="1" step="5"></div>
+          <div class="f"><label>Clasifica desde (h)</label><input type="number" id="clasIni" value="5" min="0" max="23" step="1"></div>
+          <div class="f"><label>Clasifica hasta (h)</label><input type="number" id="clasFin" value="14" min="1" max="24" step="1"></div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h2>Última milla</h2>
+        <p>Las camionetas salen sólo en los horarios de corte. Lo que no entra, espera al corte siguiente.</p>
+        <div class="fields">
+          <div class="f wide"><label>Horarios de corte (h, separados por coma)</label><input type="text" id="cortes" value="7,13"></div>
+          <div class="f"><label>Camionetas</label><input type="number" id="Num" value="14" min="1" step="1"></div>
+          <div class="f"><label>Capacidad c/u (paq)</label><input type="number" id="Cum" value="110" min="1" step="5"></div>
+          <div class="f"><label>Paquetes por parada</label><input type="number" id="pxp" value="1.3" min="1" step="0.1"></div>
+          <div class="f"><label>Minutos por parada</label><input type="number" id="serv" value="4" min="0.5" step="0.5"></div>
+          <div class="f"><label>Área de la zona (km²)</label><input type="number" id="area" value="90" min="1" step="5"></div>
+          <div class="f"><label>Depósito a zona (km)</label><input type="number" id="r" value="6" min="0" step="1"></div>
+          <div class="f"><label>Velocidad de acceso (km/h)</label><input type="number" id="va" value="45" min="5" step="5"></div>
+          <div class="f"><label>Velocidad en zona (km/h)</label><input type="number" id="vl" value="22" min="3" step="1"></div>
+          <div class="f"><label>Jornada máxima (h)</label><input type="number" id="jorn" value="8" min="1" step="0.5"></div>
+          <div class="f"><label>Costo diario c/u ($)</label><input type="number" id="costoVeh" value="95000" min="0" step="5000"></div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <h2>Corrida</h2>
+        <p>La semilla fija el azar: con el mismo número, el mismo resultado.</p>
+        <div class="fields">
+          <div class="f"><label>Días simulados</label><input type="number" id="dias" value="30" min="5" max="120" step="5"></div>
+          <div class="f"><label>Semilla</label><input type="number" id="seed" value="7" min="1" step="1"></div>
+        </div>
+      </div>
+    </form>
+
+    <!-- ============ RESULTADOS ============ -->
+    <div class="results">
+
+      <section class="card hero">
+        <div class="hero-head">
+          <div>
+            <h2>El viaje de un paquete</h2>
+            <p class="note" style="margin-bottom:0">Tiempo promedio puerta a puerta, repartido entre las seis etapas.</p>
+          </div>
+          <div class="total"><div class="num" id="totalNum">—</div><div class="lbl">horas en promedio</div></div>
+        </div>
+        <div class="band" id="band"></div>
+        <div class="ticks"><span>Llega a Buenos Aires</span><span id="tickMid"></span><span>Entregado</span></div>
+        <table class="stages">
+          <thead><tr><th>Etapa</th><th class="r">Horas</th><th class="r">Parte del total</th><th class="r">Qué la controla</th></tr></thead>
+          <tbody id="stageRows"></tbody>
+        </table>
+      </section>
+
+      <div id="callouts" style="display:flex;flex-direction:column;gap:10px"></div>
+
+      <div class="kpis" id="kpis"></div>
+
+      <section class="card">
+        <h2>Cuánto varía</h2>
+        <p class="note">El promedio no es lo que promete un comercial. Si al cliente le prometés un plazo, el número que importa es el que se cumple 9 de cada 10 veces.</p>
+        <div class="chartbox"><svg id="hist" viewBox="0 0 760 230" role="img" aria-label="Distribución del tiempo total"></svg></div>
+      </section>
+
+      <section class="card">
+        <h2>Qué pasa si movemos una sola palanca</h2>
+        <p class="note">Barrido de un parámetro por vez, dejando todo lo demás igual. La línea azul es el tiempo de entrega; la naranja, el costo por paquete. Donde se cruzan está la discusión.</p>
+        <div class="fields" style="grid-template-columns:1fr;max-width:320px;margin-bottom:14px">
+          <div class="f"><label>Parámetro a barrer</label>
+            <select id="sweepVar">
+              <option value="T">Espera máxima en consolidación (h)</option>
+              <option value="Nlh">Camiones de línea</option>
+              <option value="Clh">Capacidad del camión de línea</option>
+              <option value="ops">Operarios de clasificación</option>
+              <option value="Num">Camionetas de última milla</option>
+              <option value="Cum">Capacidad de camioneta</option>
+            </select>
+          </div>
+        </div>
+        <div class="chartbox"><svg id="sweep" viewBox="0 0 760 260" role="img" aria-label="Barrido de sensibilidad"></svg></div>
+        <div class="legend">
+          <span><i style="background:var(--s1)"></i>Horas puerta a puerta</span>
+          <span><i style="background:var(--s5)"></i>Costo por paquete</span>
+        </div>
+      </section>
+
+      <details class="math">
+        <summary>Cómo se calcula cada etapa</summary>
+        <div class="body">
+          <h3>1 y 2. Espera de consolidación y espera de camión</h3>
+          <p>El despacho se dispara cuando el buffer llega a <code>Q</code> paquetes o cuando el paquete más viejo cumplió <code>T</code> horas de espera, lo que ocurra primero. Si no hay camión libre en ese momento, el tiempo extra se cuenta aparte: eso separa un problema de política (cuándo decido salir) de un problema de flota (con qué salgo).</p>
+          <p>Para la política de tiempo puro la espera media vale <code>T/2</code>; para la de cantidad pura, <code>(Q−1)/(2λ)</code> con <code>λ</code> = paquetes por hora. La política combinada no tiene fórmula cerrada simple, por eso se simula.</p>
+          <h3>3. Tramo de línea</h3>
+          <p>Carga más <code>distancia / velocidad</code>, multiplicado por un factor aleatorio lognormal con la variabilidad indicada. El camión queda ocupado hasta volver: <code>carga + ida + descarga + vuelta</code>. La utilización de la flota sale de ahí, y cuando se acerca a 1 la espera de camión se dispara de forma no lineal.</p>
+          <h3>4. Clasificación</h3>
+          <p>Cola FIFO servida a <code>operarios × paquetes/hora</code> dentro de la ventana de trabajo. Un camión que llega fuera de la ventana no empieza a clasificarse hasta que abre: por eso la ventana suele importar más que la cantidad de gente.</p>
+          <h3>5. Espera de corte</h3>
+          <p>El paquete clasificado espera al próximo horario de salida. Con cortes cada <code>H</code> horas y llegadas parejas, la espera media es <code>H/2</code>. Si en un corte no entra en ninguna camioneta, espera al siguiente completo.</p>
+          <h3>6. Reparto</h3>
+          <p>Aproximación continua de ruteo. Con <code>n</code> paradas repartidas en un área <code>A</code>, la distancia media entre paradas es <code>0,57·√(A/n)</code>. El paquete de la parada <code>j</code> se entrega a las <code>r/v_acceso + j·(distancia entre paradas / v_zona + tiempo de servicio)</code>. Un paquete cualquiera cae en promedio en la parada del medio, así que la mitad de la carga pesa sobre su tiempo de entrega.</p>
+          <h3>Estabilidad</h3>
+          <p>Si al final de la corrida quedan paquetes sin entregar y el número crece, el sistema no da abasto: en ese caso los promedios de arriba subestiman el problema real, porque la cola sigue creciendo.</p>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- random ---------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function normal(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+
+/* ---------------- helpers ---------------- */
+const N=id=>parseFloat(document.getElementById(id).value)||0;
+const inWin=(h,a,b)=> a<b ? (h>=a&&h<b) : (h>=a||h<b);
+const fmtH=x=> x>=100? x.toFixed(0) : x>=10? x.toFixed(1) : x.toFixed(2);
+const fmtMoney=x=> "$"+Math.round(x).toLocaleString("es-AR");
+
+function readParams(){
+  const cortes=document.getElementById("cortes").value.split(",")
+    .map(s=>parseFloat(s.trim())).filter(x=>!isNaN(x)&&x>=0&&x<24).sort((a,b)=>a-b);
+  return {
+    paqDia:N("paqDia"), varDem:N("varDem")/100, recepIni:N("recepIni"), recepFin:N("recepFin"),
+    Q:N("Q"), T:N("T"), Clh:N("Clh"), tCarga:N("tCarga"),
+    dist:N("dist"), vlh:N("vlh"), Nlh:Math.max(1,Math.round(N("Nlh"))), sigLh:N("sigLh")/100, tDesc:N("tDesc"), costoViaje:N("costoViaje"),
+    ops:Math.max(1,Math.round(N("ops"))), mu:N("mu"), clasIni:N("clasIni"), clasFin:N("clasFin"),
+    cortes: cortes.length?cortes:[8], Num:Math.max(1,Math.round(N("Num"))), Cum:N("Cum"), pxp:Math.max(1,N("pxp")),
+    serv:N("serv"), area:N("area"), r:N("r"), va:N("va"), vl:N("vl"), jorn:N("jorn"), costoVeh:N("costoVeh"),
+    dias:Math.max(5,Math.round(N("dias"))), seed:Math.max(1,Math.round(N("seed")))
+  };
+}
+
+/* ---------------- simulación ---------------- */
+function simulate(P){
+  const rng=mulberry32(P.seed*2654435761>>>0);
+  const dt=0.05, H=P.dias*24, warm=Math.min(2,Math.max(1,P.dias*0.15))*24;
+  const K=0.57;
+
+  // llegadas
+  let recepDur=(P.recepFin-P.recepIni+24)%24; if(recepDur<=0)recepDur=24;
+  const pk=[];
+  for(let d=0;d<P.dias;d++){
+    const vol=Math.max(1,P.paqDia*(1+P.varDem*(rng()*2-1)));
+    const lam=vol/recepDur;
+    let t=d*24+P.recepIni; const end=t+recepDur;
+    for(;;){ t+= -Math.log(1-rng())/lam; if(t>=end||t>=H)break; pk.push({ta:t}); }
+  }
+  pk.sort((a,b)=>a.ta-b.ta);
+
+  // estado
+  let pi=0, buffer=[], readySince=null;
+  const truckFree=new Array(P.Nlh).fill(0);
+  let inTransit=[], sortQ=[], credit=0, pool=[];
+  let trips=0, busyLh=0, sorted=0, sortCapH=0, routeH=0;
+
+  const tauBase=P.dist/P.vlh;
+
+  // máximo de paradas que entran en el tiempo disponible
+  const dAcc=P.r/P.va;
+  function maxStops(avail){
+    const top=Math.ceil(P.Cum/P.pxp);
+    let best=0;
+    for(let n=1;n<=top;n++){
+      const dur=2*dAcc + K*Math.sqrt(P.area*n)/P.vl + n*(P.serv/60);
+      if(dur<=avail) best=n; else break;
+    }
+    return best;
+  }
+  const nMax=maxStops(P.jorn);
+
+  // cada camioneta tiene su propia disponibilidad y su jornada diaria
+  const umFree=new Array(P.Num).fill(0);
+  const umDay=new Array(P.Num).fill(-1);
+  const umBudget=new Array(P.Num).fill(P.jorn);
+
+  function despacharUltimaMilla(ct){
+    const day=Math.floor(ct/24);
+    for(let i=0;i<P.Num;i++){ if(umDay[i]!==day){ umDay[i]=day; umBudget[i]=P.jorn; } }
+    for(let i=0;i<P.Num && pool.length;i++){
+      if(umFree[i]>ct) continue;
+      const avail=umBudget[i];
+      const nCap=maxStops(avail);
+      if(nCap<1) continue;
+      const take=Math.min(pool.length, Math.floor(nCap*P.pxp), P.Cum);
+      if(take<1) continue;
+      const load=pool.splice(0,take);
+      const nStops=Math.max(1,Math.ceil(load.length/P.pxp));
+      const D=K*Math.sqrt(P.area/nStops)/P.vl + P.serv/60;
+      for(let k=0;k<load.length;k++){
+        const j=Math.floor(k/P.pxp)+1;
+        load[k].tCut=ct; load[k].tDel=ct+dAcc+j*D;
+      }
+      const dur=2*dAcc + nStops*D;
+      routeH+=dur; umFree[i]=ct+dur; umBudget[i]=Math.max(0,avail-dur);
+    }
+  }
+
+  for(let t=0;t<H;t+=dt){
+    while(pi<pk.length && pk[pi].ta<t+dt){ buffer.push(pk[pi]); pi++; }
+
+    if(readySince===null && buffer.length>0){
+      if(buffer.length>=P.Q || (t-buffer[0].ta)>=P.T) readySince=t;
+    }
+    if(readySince!==null){
+      const idx=truckFree.findIndex(x=>x<=t);
+      if(idx>=0){
+        const load=buffer.splice(0,Math.min(buffer.length,P.Clh));
+        const rs=readySince;
+        for(const p of load){ p.tReady=rs; p.tDisp=t; }
+        const tau=tauBase*Math.exp(P.sigLh*normal(rng)-P.sigLh*P.sigLh/2);
+        const arriveAt=t+P.tCarga+tau;
+        inTransit.push({at:arriveAt,items:load});
+        const back=arriveAt+P.tDesc+tauBase;
+        truckFree[idx]=back;
+        busyLh+=(back-t); trips++;
+        readySince=null;
+      }
+    }
+
+    for(let i=inTransit.length-1;i>=0;i--){
+      if(inTransit[i].at<=t){
+        for(const p of inTransit[i].items){ p.tSL=inTransit[i].at; sortQ.push(p); }
+        inTransit.splice(i,1);
+      }
+    }
+
+    const hod=((t%24)+24)%24;
+    if(inWin(hod,P.clasIni,P.clasFin)){
+      credit+=P.ops*P.mu*dt; sortCapH+=dt;
+      while(credit>=1 && sortQ.length){ const p=sortQ.shift(); p.tSort=t; pool.push(p); credit-=1; sorted++; }
+    }
+
+    for(const ch of P.cortes){
+      const ct=Math.floor(t/24)*24+ch;
+      if(ct>=t && ct<t+dt) despacharUltimaMilla(ct);
+    }
+  }
+
+  // estadísticas
+  const keys=["w1","w2","t3","w4","w5","t6"];
+  const sums={w1:0,w2:0,t3:0,w4:0,w5:0,t6:0}; const tots=[];
+  let n=0;
+  for(const p of pk){
+    if(p.tDel===undefined) continue;
+    if(p.ta<warm || p.tDel>H) continue;
+    const v={w1:p.tReady-p.ta, w2:p.tDisp-p.tReady, t3:p.tSL-p.tDisp, w4:p.tSort-p.tSL, w5:p.tCut-p.tSort, t6:p.tDel-p.tCut};
+    for(const k of keys) sums[k]+=Math.max(0,v[k]);
+    tots.push(p.tDel-p.ta); n++;
+  }
+  tots.sort((a,b)=>a-b);
+  const q=f=> tots.length? tots[Math.min(tots.length-1,Math.floor(f*tots.length))] : 0;
+  const mean={}; for(const k of keys) mean[k]= n? sums[k]/n : 0;
+  const totalMean= keys.reduce((a,k)=>a+mean[k],0);
+
+  const arrived=pk.filter(p=>p.ta<=H).length;
+  const deliveredAll=pk.filter(p=>p.tDel!==undefined && p.tDel<=H).length;
+  const backlog=arrived-deliveredAll;
+  const Hm=H*0.6;
+  const backlogMid=pk.filter(p=>p.ta<=Hm).length - pk.filter(p=>p.tDel!==undefined && p.tDel<=Hm).length;
+  const gap = arrived? 1-deliveredAll/arrived : 0;
+  const inestable = backlog > backlogMid*1.15 + 40 && gap > 0.15;
+  const effDias=P.dias-warm/24;
+  const costo= trips*P.costoViaje + P.dias*P.Num*P.costoVeh;
+  const costoPaq= deliveredAll? costo/deliveredAll : 0;
+
+  return {
+    mean, totalMean, p50:q(0.5), p90:q(0.9), p10:q(0.1), tots, n,
+    entregadosDia: effDias>0? deliveredAll/P.dias : 0,
+    backlog, backlogMid, inestable, arrived, deliveredAll,
+    utilLh: Math.min(1.5, busyLh/(P.Nlh*H)),
+    utilSort: sortCapH>0? Math.min(1.5, sorted/(P.ops*P.mu*sortCapH)) : 0,
+    utilUm: Math.min(1.5, routeH/(P.Num*P.dias*P.jorn)),
+    trips, costoPaq, nMax
+  };
+}
+
+/* ---------------- render ---------------- */
+const STAGES=[
+  {k:"w1",n:"Espera de consolidación",c:"var(--s1)",d:"Cantidad disparadora y espera máxima"},
+  {k:"w2",n:"Espera de camión",c:"var(--s2)",d:"Cantidad de camiones de línea"},
+  {k:"t3",n:"Tramo de línea",c:"var(--s3)",d:"Distancia y velocidad"},
+  {k:"w4",n:"Clasificación",c:"var(--s4)",d:"Ventana de trabajo y operarios"},
+  {k:"w5",n:"Espera de corte",c:"var(--s5)",d:"Horarios de salida y capacidad"},
+  {k:"t6",n:"Reparto",c:"var(--s6)",d:"Densidad de paradas y jornada"}
+];
+
+function render(R,P){
+  document.getElementById("totalNum").textContent=fmtH(R.totalMean);
+  document.getElementById("tickMid").textContent= (R.totalMean/24).toFixed(1)+" días";
+  document.getElementById("runinfo").textContent=
+    `${R.n.toLocaleString("es-AR")} paquetes medidos · ${P.dias} días · semilla ${P.seed}`;
+
+  const band=document.getElementById("band"); band.innerHTML="";
+  const rows=document.getElementById("stageRows"); rows.innerHTML="";
+  let worst=null;
+  for(const s of STAGES){
+    const v=R.mean[s.k], pct= R.totalMean>0? v/R.totalMean*100 : 0;
+    if(!worst||v>R.mean[worst.k]) worst=s;
+    const d=document.createElement("div");
+    d.style.flexGrow=Math.max(v,0.0001); d.style.flexBasis="0";
+    d.style.background=s.c; d.title=`${s.n}: ${fmtH(v)} h`;
+    d.textContent= pct>9? fmtH(v)+" h" : "";
+    band.appendChild(d);
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td><span class="sw" style="background:${s.c}"></span>${s.n}</td>
+      <td class="r">${fmtH(v)}</td><td class="r">${pct.toFixed(0)}%</td>
+      <td class="r" style="color:var(--muted);font-family:var(--sans);font-size:12px">${s.d}</td>`;
+    rows.appendChild(tr);
+  }
+
+  // KPIs
+  const kp=document.getElementById("kpis");
+  const u=(x)=>`<div class="bar"><i style="width:${Math.min(100,x*100)}%"></i></div>`;
+  const hot=x=>x>0.85?"hot":"";
+  kp.innerHTML=`
+    <div class="kpi"><div class="v">${fmtH(R.p50)} h</div><div class="k">Mediana puerta a puerta</div></div>
+    <div class="kpi"><div class="v">${fmtH(R.p90)} h</div><div class="k">Se cumple 9 de cada 10 veces</div></div>
+    <div class="kpi"><div class="v">${Math.round(R.entregadosDia).toLocaleString("es-AR")}</div><div class="k">Entregas por día</div></div>
+    <div class="kpi ${hot(R.utilLh)}"><div class="v">${(R.utilLh*100).toFixed(0)}%</div><div class="k">Uso de camiones de línea</div>${u(R.utilLh)}</div>
+    <div class="kpi ${hot(R.utilSort)}"><div class="v">${(R.utilSort*100).toFixed(0)}%</div><div class="k">Uso de clasificación</div>${u(R.utilSort)}</div>
+    <div class="kpi ${hot(R.utilUm)}"><div class="v">${(R.utilUm*100).toFixed(0)}%</div><div class="k">Uso de camionetas</div>${u(R.utilUm)}</div>
+    <div class="kpi"><div class="v">${fmtMoney(R.costoPaq)}</div><div class="k">Costo de transporte por paquete</div></div>`;
+
+  // callouts
+  const co=document.getElementById("callouts"); co.innerHTML="";
+  const pctW=(R.mean[worst.k]/R.totalMean*100)||0;
+  const c1=document.createElement("div"); c1.className="callout";
+  c1.innerHTML=`<strong>${worst.n}</strong> es la etapa que más pesa: <span class="mono">${fmtH(R.mean[worst.k])} h</span> de las <span class="mono">${fmtH(R.totalMean)} h</span> totales, un ${pctW.toFixed(0)}%. Cualquier mejora en otra etapa mueve poco mientras esta no se toque.`;
+  co.appendChild(c1);
+
+  if(R.inestable){
+    const c2=document.createElement("div"); c2.className="callout bad";
+    c2.innerHTML=`<strong>La red no da abasto.</strong> Al final de la corrida quedan <span class="mono">${R.backlog.toLocaleString("es-AR")}</span> paquetes sin entregar y la cola sigue creciendo. Con esta configuración los tiempos de arriba son optimistas: en la realidad se degradan día a día.`;
+    co.appendChild(c2);
+  }
+
+  drawHist(R);
+  drawSweep(P);
+}
+
+/* ---- histograma ---- */
+function drawHist(R){
+  const svg=document.getElementById("hist"); const W=760,Hh=230,m={l:42,r:14,t:14,b:34};
+  if(!R.tots.length){svg.innerHTML="";return}
+  const lo=R.tots[0], hi=R.tots[R.tots.length-1]||1, nb=26;
+  const bw=(hi-lo)/nb||1, bins=new Array(nb).fill(0);
+  for(const v of R.tots){ let i=Math.floor((v-lo)/bw); if(i>=nb)i=nb-1; if(i<0)i=0; bins[i]++; }
+  const mx=Math.max(...bins)||1;
+  const x=i=>m.l+(i/nb)*(W-m.l-m.r), y=v=>Hh-m.b-(v/mx)*(Hh-m.t-m.b);
+  let s=`<line class="axis" x1="${m.l}" y1="${Hh-m.b}" x2="${W-m.r}" y2="${Hh-m.b}"/>`;
+  bins.forEach((b,i)=>{ const w=(W-m.l-m.r)/nb;
+    s+=`<rect x="${x(i)+0.6}" y="${y(b)}" width="${w-1.2}" height="${Hh-m.b-y(b)}" fill="#35618F" opacity="0.72"/>`});
+  const px=v=>m.l+((v-lo)/(hi-lo||1))*(W-m.l-m.r);
+  [["Mediana",R.p50,"#14212E"],["9 de cada 10",R.p90,"#C97B2C"]].forEach(([lab,v,c],i)=>{
+    s+=`<line x1="${px(v)}" y1="${m.t}" x2="${px(v)}" y2="${Hh-m.b}" stroke="${c}" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text class="labs" x="${px(v)+5}" y="${m.t+12+i*14}" fill="${c}">${lab} ${fmtH(v)} h</text>`;
+  });
+  for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4;
+    s+=`<text class="lab" x="${px(v)}" y="${Hh-m.b+16}" text-anchor="middle">${fmtH(v)}</text>`}
+  s+=`<text class="labs" x="${m.l}" y="${Hh-4}">horas desde que llega a Buenos Aires hasta que se entrega</text>`;
+  svg.innerHTML=s;
+}
+
+/* ---- barrido ---- */
+const SWEEP={
+  T:{lab:"Espera máxima en consolidación (h)",vals:[2,4,6,8,10,12,16,20,24]},
+  Nlh:{lab:"Camiones de línea",vals:[1,2,3,4,5,6,7,8]},
+  Clh:{lab:"Capacidad del camión (paq)",vals:[200,400,600,800,1000,1200,1500]},
+  ops:{lab:"Operarios de clasificación",vals:[1,2,3,4,5,6,8,10]},
+  Num:{lab:"Camionetas de última milla",vals:[2,4,6,8,10,12,14,16]},
+  Cum:{lab:"Capacidad de camioneta (paq)",vals:[40,60,80,100,120,150,180]}
+};
+function drawSweep(P){
+  const key=document.getElementById("sweepVar").value, cfg=SWEEP[key];
+  const base={...P, dias:Math.min(P.dias,12)};
+  const pts=cfg.vals.map(v=>{ const R=simulate({...base,[key]:v}); return {v, h:R.totalMean, c:R.costoPaq}; });
+  const svg=document.getElementById("sweep"); const W=760,Hh=260,m={l:46,r:52,t:16,b:40};
+  const hs=pts.map(p=>p.h), cs=pts.map(p=>p.c);
+  const hMax=Math.max(...hs)*1.1||1, cMax=Math.max(...cs)*1.15||1;
+  const X=i=>m.l+(i/(pts.length-1||1))*(W-m.l-m.r);
+  const Yh=v=>Hh-m.b-(v/hMax)*(Hh-m.t-m.b);
+  const Yc=v=>Hh-m.b-(v/cMax)*(Hh-m.t-m.b);
+  let s="";
+  for(let i=0;i<=4;i++){ const yy=m.t+(Hh-m.t-m.b)*i/4;
+    s+=`<line class="gridl" x1="${m.l}" y1="${yy}" x2="${W-m.r}" y2="${yy}"/>
+        <text class="lab" x="${m.l-6}" y="${yy+3}" text-anchor="end">${fmtH(hMax*(1-i/4))}</text>
+        <text class="lab" x="${W-m.r+6}" y="${yy+3}">${Math.round(cMax*(1-i/4)/1000)}k</text>`}
+  s+=`<polyline fill="none" stroke="#35618F" stroke-width="2" points="${pts.map((p,i)=>X(i)+","+Yh(p.h)).join(" ")}"/>`;
+  s+=`<polyline fill="none" stroke="#C97B2C" stroke-width="2" stroke-dasharray="5 4" points="${pts.map((p,i)=>X(i)+","+Yc(p.c)).join(" ")}"/>`;
+  pts.forEach((p,i)=>{
+    s+=`<circle cx="${X(i)}" cy="${Yh(p.h)}" r="3" fill="#35618F"><title>${p.v}: ${fmtH(p.h)} h</title></circle>`;
+    s+=`<circle cx="${X(i)}" cy="${Yc(p.c)}" r="3" fill="#C97B2C"><title>${p.v}: ${fmtMoney(p.c)}/paq</title></circle>`;
+    s+=`<text class="lab" x="${X(i)}" y="${Hh-m.b+16}" text-anchor="middle">${p.v}</text>`;
+  });
+  const cur=P[key];
+  const ci=pts.findIndex(p=>p.v>=cur);
+  if(ci>=0) s+=`<line x1="${X(ci)}" y1="${m.t}" x2="${X(ci)}" y2="${Hh-m.b}" stroke="#14212E" stroke-width="1" opacity=".35"/>
+                <text class="labs" x="${X(ci)+5}" y="${m.t+11}">valor actual</text>`;
+  s+=`<text class="labs" x="${m.l}" y="${Hh-6}">${cfg.lab}</text>`;
+  svg.innerHTML=s;
+}
+
+/* ---------------- run ---------------- */
+let timer=null;
+function run(){
+  const P=readParams();
+  const R=simulate(P);
+  render(R,P);
+}
+document.getElementById("form").addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(run,180)});
+document.getElementById("sweepVar").addEventListener("change",()=>drawSweep(readParams()));
+run();
+</script>
